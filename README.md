@@ -2,6 +2,18 @@
 
 自动从 YouTube 下载视频并上传到 miaoju 平台。
 
+## 特别鸣谢
+
+- [猫](https://cnb.cool/u/smallcat) 把api文档和写好的手动搬运脚本给了我
+- [SDCOM](https://cnb.cool/u/SDCOM) 全能程序员
+- [Foxcode](https://foxcode.rjj.cc/auth/register?aff=BO9IXM) 非常便宜的claude code渠道喵！推荐使用喵！
+
+## 友情链接
+
+- [喵聚|Miaoju](https://miaoju.top/) 
+- [山梨字幕组](https://yamanasub.cn/) 帮助超500万人看懂世界
+- [HKMC云](https://cloud.hkmc.online/) 记得选择销售猫猫，喵！
+
 ## 功能
 
 - 自动下载 YouTube 视频和封面
@@ -39,7 +51,6 @@ python youtube_uploader.py
 
 ## 注意事项
 
-- 需要系统安装 yt-dlp
 - 支持系统代理设置
 - 视频上传后需等待平台审核
 
