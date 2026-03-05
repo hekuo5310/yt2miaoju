@@ -14,6 +14,10 @@
 - [山梨字幕组](https://yamanasub.cn/) 帮助超500万人看懂世界
 - [HKMC云](https://cloud.hkmc.online/) 记得选择销售猫猫，喵！
 
+## 用前须知
+
+**路径被写死了！需要自己修改！**
+
 ## 功能
 
 - 自动下载 YouTube 视频和封面
