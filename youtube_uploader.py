@@ -116,17 +116,16 @@ class YouTubeUploader:
             return ""
 
     def download_video(self, url: str, output_dir: str):
-        """下载视频（支持YouTube和Bilibili）"""
+        """下载视频（支持YouTube）"""
         video_template = os.path.join(output_dir, "video.%(ext)s")
 
         print(f"下载视频: {url}")
 
-        # Bilibili需要特殊格式选择
-        if 'bilibili.com' in url:
+        if 'youtube.com' in url or 'youtu.be' in url:
+            cmd = [self.yt_dlp, "-f", "best[ext=mp4]", "-o", video_template, url]
+        else:
             cmd = [self.yt_dlp, "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                    "--merge-output-format", "mp4", "-o", video_template, url]
-        else:
-            cmd = [self.yt_dlp, "-f", "best[ext=mp4]", "-o", video_template, url]
 
         subprocess.run(cmd, check=True, capture_output=True)
 
@@ -252,7 +251,7 @@ class YouTubeUploader:
             return False
 
     def upload_from_url(self, video_url: str):
-        """从视频URL下载并上传（支持YouTube和Bilibili）"""
+        """从视频URL下载并上传（支持YouTube）"""
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
                 # 下载
