@@ -11,9 +11,34 @@ import hashlib
 import subprocess
 import tempfile
 import requests
+import shutil
 from pathlib import Path
 
 CONFIG_FILE = "config.json"
+
+def find_executable(name):
+    """查找可执行文件路径"""
+    # 先尝试 which/where 命令
+    result = shutil.which(name)
+    if result:
+        return result
+
+    # Windows 特殊处理
+    if sys.platform == 'win32':
+        # 尝试常见路径
+        common_paths = [
+            os.path.join(os.path.expanduser("~"), "AppData", "Local", "Programs"),
+            os.path.join(os.path.expanduser("~"), "AppData", "Local", "Python"),
+            "C:\\Program Files",
+            "C:\\Program Files (x86)",
+        ]
+
+        for base in common_paths:
+            for root, dirs, files in os.walk(base):
+                if f"{name}.exe" in files:
+                    return os.path.join(root, f"{name}.exe")
+
+    return name  # 返回原名称，让系统PATH处理
 
 class YouTubeUploader:
     def __init__(self, base_url: str = "https://miaoju.hydun.com"):
@@ -21,7 +46,8 @@ class YouTubeUploader:
         self.token = None
         self.session = requests.Session()
         self.session.trust_env = True  # 使用系统代理
-        self.yt_dlp = r"C:\Users\hekuo\AppData\Local\Python\pythoncore-3.14-64\Scripts\yt-dlp.exe"
+        self.yt_dlp = find_executable("yt-dlp")
+        self.ffmpeg = find_executable("ffmpeg")
 
     def login(self, email: str, password: str) -> bool:
         """登录"""
@@ -29,7 +55,12 @@ class YouTubeUploader:
         payload = {"email": email, "password": password}
 
         try:
-            response = self.session.post(url, json=payload)
+            response = self.session.post(url, json=payload, timeout=10)
+            print(f"状态码: {response.status_code}")
+            if response.status_code != 200:
+                print(f"HTTP错误: {response.text[:200]}")
+                return False
+
             data = response.json()
 
             if data.get("code") == 200:
@@ -84,12 +115,19 @@ class YouTubeUploader:
             print(f"封面上传异常：{e}，将使用空封面")
             return ""
 
-    def download_youtube(self, url: str, output_dir: str):
-        """下载YouTube视频"""
-        video_path = os.path.join(output_dir, "video.mp4")
+    def download_video(self, url: str, output_dir: str):
+        """下载视频（支持YouTube和Bilibili）"""
+        video_template = os.path.join(output_dir, "video.%(ext)s")
 
         print(f"下载视频: {url}")
-        cmd = [self.yt_dlp, "-f", "best[ext=mp4]", "-o", video_path, url]
+
+        # Bilibili需要特殊格式选择
+        if 'bilibili.com' in url:
+            cmd = [self.yt_dlp, "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                   "--merge-output-format", "mp4", "-o", video_template, url]
+        else:
+            cmd = [self.yt_dlp, "-f", "best[ext=mp4]", "-o", video_template, url]
+
         subprocess.run(cmd, check=True, capture_output=True)
 
         print("下载封面...")
@@ -104,6 +142,23 @@ class YouTubeUploader:
         title = metadata.get("title", "Untitled")
         desc = metadata.get("description", "")
 
+        # 找到下载的视频文件
+        video_file = None
+        for f in os.listdir(output_dir):
+            if f.startswith("video.") and not f.endswith('.part'):
+                video_file = os.path.join(output_dir, f)
+                break
+
+        # 如果不是mp4，转换为mp4
+        if video_file and not video_file.endswith('.mp4'):
+            print("转换为mp4格式...")
+            mp4_path = os.path.join(output_dir, "video.mp4")
+            cmd = [self.ffmpeg, "-i", video_file, "-c", "copy", "-y", mp4_path]
+            subprocess.run(cmd, capture_output=True)
+            if os.path.exists(mp4_path):
+                os.remove(video_file)
+                video_file = mp4_path
+
         # 找到下载的封面文件
         cover_file = None
         for f in os.listdir(output_dir):
@@ -112,7 +167,7 @@ class YouTubeUploader:
                 break
 
         print(f"下载完成: {title}")
-        return video_path, cover_file, title, desc
+        return video_file, cover_file, title, desc
 
     def upload_video_chunk(self, video_path: str, file_hash: str,
                           chunk_index: int, total_chunks: int,
@@ -196,12 +251,12 @@ class YouTubeUploader:
             print(f"异常：{e}")
             return False
 
-    def upload_from_youtube(self, youtube_url: str):
-        """从YouTube下载并上传"""
+    def upload_from_url(self, video_url: str):
+        """从视频URL下载并上传（支持YouTube和Bilibili）"""
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
                 # 下载
-                video_path, cover_path, title, desc = self.download_youtube(youtube_url, tmpdir)
+                video_path, cover_path, title, desc = self.download_video(video_url, tmpdir)
 
                 # 上传封面
                 cover_url = ""
@@ -250,7 +305,7 @@ class YouTubeUploader:
                 print("上传视频信息...")
                 self.upload_video_info(vid, title, cover_url, desc[:200])
 
-                print(f"完成！视频链接: {self.base_url}/video/{vid}")
+                print(f"完成！视频链接: https://www.miaoju.top/video/{vid}")
                 return True
 
         except Exception as e:
@@ -289,9 +344,8 @@ def main():
         if not url:
             continue
 
-        uploader.upload_from_youtube(url)
+        uploader.upload_from_url(url)
 
 
 if __name__ == "__main__":
     main()
-
